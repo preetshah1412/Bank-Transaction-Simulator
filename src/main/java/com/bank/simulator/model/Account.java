@@ -12,6 +12,7 @@ public class Account {
     private final String accountNumber;
     private final String holderName;
     private BigDecimal balance;
+    private BigDecimal debt;
 
     // Advanced: ReadWriteLock allows multiple readers (balance checks) but only one
     // writer (transfers)
@@ -19,9 +20,32 @@ public class Account {
     private final List<Transaction> transactionHistory = new ArrayList<>();
 
     public Account(String accountNumber, String holderName, BigDecimal initialBalance) {
+        this(accountNumber, holderName, initialBalance, BigDecimal.ZERO);
+    }
+
+    public Account(String accountNumber, String holderName, BigDecimal initialBalance, BigDecimal initialDebt) {
         this.accountNumber = accountNumber;
         this.holderName = holderName;
         this.balance = initialBalance;
+        this.debt = initialDebt;
+    }
+
+    public BigDecimal getDebt() {
+        rwLock.readLock().lock();
+        try {
+            return debt;
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    public void addDebt(BigDecimal amount) {
+        rwLock.writeLock().lock();
+        try {
+            debt = debt.add(amount);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     private static final BigDecimal MIN_BALANCE = new BigDecimal("20");
@@ -31,11 +55,10 @@ public class Account {
         try {
             // Rule: Check if (Balance - Amount) < 20
             if (balance.subtract(amount).compareTo(MIN_BALANCE) < 0) {
-                 String msg = String.format(
-                     "Transaction Declined. Insufficient Funds. Your balance is %s, but you need to maintain a minimum of %s.", 
-                     balance, MIN_BALANCE
-                 );
-                 throw new InsufficientFundsException(msg);
+                String msg = String.format(
+                        "Transaction Declined. Insufficient Funds. Your balance is %s, but you need to maintain a minimum of %s.",
+                        balance, MIN_BALANCE);
+                throw new InsufficientFundsException(msg);
             }
             balance = balance.subtract(amount);
         } finally {

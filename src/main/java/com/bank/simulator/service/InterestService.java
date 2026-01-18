@@ -24,19 +24,31 @@ public class InterestService {
     }
 
     private void applyInterest() {
-        for (Account account : accountRepository.findAll()) {
-            // We need write lock to change balance
-            account.getRwLock().writeLock().lock();
+        for (Account acc : accountRepository.findAll()) {
+            // We need write lock to change balance and debt
+            acc.getRwLock().writeLock().lock();
             try {
-                BigDecimal currentInfo = account.getBalance();
-                BigDecimal interest = currentInfo.multiply(INTEREST_RATE).setScale(2, RoundingMode.HALF_UP);
-                if (interest.compareTo(BigDecimal.ZERO) > 0) {
-                    account.credit(interest);
-                    // System.out.println("Interest paid to " + account.getAccountNumber() + ": " +
+                // 1. Positive Interest (Savings) - 5%
+                BigDecimal currentBalance = acc.getBalance();
+                if (currentBalance.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal interest = currentBalance.multiply(new BigDecimal("0.05")).setScale(2,
+                            RoundingMode.HALF_UP);
+                    acc.credit(interest);
+                    // System.out.println("Interest paid to " + acc.getAccountNumber() + ": " +
                     // interest);
                 }
+
+                // 2. Negative Interest (Debt) - 10%
+                BigDecimal currentDebt = acc.getDebt();
+                if (currentDebt.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal debtInterest = currentDebt.multiply(new BigDecimal("0.10")).setScale(2,
+                            RoundingMode.HALF_UP);
+                    acc.addDebt(debtInterest);
+                    // System.out.println("Debt interest applied to " + acc.getAccountNumber() + ":
+                    // " + debtInterest);
+                }
             } finally {
-                account.getRwLock().writeLock().unlock();
+                acc.getRwLock().writeLock().unlock();
             }
         }
     }

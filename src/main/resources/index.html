@@ -132,15 +132,16 @@
         </div>
 
         <!-- Admin Controls (Interactive Layer) -->
-        <div class="card" style="grid-column: span 2; display: flex; gap: 20px; align-items: center;">
+        <div class="card" style="grid-column: span 2; display: flex; gap: 20px; align-items: flex-start;">
+            <!-- Transfer Controls -->
             <div style="flex: 1;">
                 <h2>Admin Controls</h2>
-                <p style="color: #888; font-size: 13px;">Manually trigger transfers to test concurrency.</p>
-                <div style="display: flex; gap: 10px;">
+                <p style="color: #888; font-size: 13px;">Manually trigger transfers.</p>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
                     <input type="text" id="srcAcc" placeholder="From (e.g. A1001)"
-                        style="padding: 8px; background: #333; color: white; border: 1px solid #555;">
+                        style="padding: 8px; background: #333; color: white; border: 1px solid #555; width: 100px;">
                     <input type="text" id="destAcc" placeholder="To (e.g. A1002)"
-                        style="padding: 8px; background: #333; color: white; border: 1px solid #555;">
+                        style="padding: 8px; background: #333; color: white; border: 1px solid #555; width: 100px;">
                     <input type="number" id="amt" placeholder="Amount"
                         style="padding: 8px; width: 80px; background: #333; color: white; border: 1px solid #555;">
                     <button onclick="triggerTransfer()"
@@ -149,14 +150,40 @@
                         style="padding: 8px 16px; background: #f44747; color: white; border: none; cursor: pointer;">Test
                         Fraud</button>
                 </div>
+
+                <h3>Create New Account (Expansion)</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <input type="text" id="newAccId" placeholder="ID (e.g. A1005)"
+                        style="padding: 8px; background: #333; color: white; border: 1px solid #555; width: 100px;">
+                    <input type="text" id="newHolder" placeholder="Name (e.g. Elon)"
+                        style="padding: 8px; background: #333; color: white; border: 1px solid #555;">
+                    <input type="number" id="newBal" placeholder="Balance"
+                        style="padding: 8px; width: 100px; background: #333; color: white; border: 1px solid #555;">
+                    <button onclick="createAccount()"
+                        style="padding: 8px 16px; background: #6a9955; color: white; border: none; cursor: pointer;">Create</button>
+                </div>
+
+                <h3>Request Loan (Shark Tank 🦈)</h3>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="loanAccId" placeholder="ID (e.g. A1001)"
+                        style="padding: 8px; background: #333; color: white; border: 1px solid #555; width: 100px;">
+                    <input type="number" id="loanAmt" placeholder="Amount"
+                        style="padding: 8px; width: 100px; background: #333; color: white; border: 1px solid #555;">
+                    <button onclick="requestLoan()"
+                        style="padding: 8px 16px; background: #ce9178; color: white; border: none; cursor: pointer;">Borrow</button>
+                </div>
                 <div id="status" style="margin-top: 10px; font-size: 12px; color: #aaa;"></div>
             </div>
-            <div style="border-left: 1px solid #444; padding-left: 20px;">
+
+            <div style="border-left: 1px solid #444; padding-left: 20px; min-width: 200px;">
                 <h3 style="color: #4ec9b0;">Active Services</h3>
                 <ul style="font-size: 12px; color: #ccc;">
                     <li>✅ Fraud Detection Service</li>
                     <li>✅ Audit Logging Service (Async)</li>
                     <li>✅ Interest Service (5%) ⚡ACTIVE</li>
+                    <li>✅ Persistence (Auto-Save) 💾 <span style="color:#6a9955">ON</span></li>
+                    <li>✅ Dynamic Expansion 🏭 <span style="color:#6a9955">ON</span></li>
+                    <li>✅ Loan Shark System 🦈 <span style="color:#ce9178">ON</span></li>
                 </ul>
             </div>
         </div>
@@ -173,15 +200,31 @@
         }
 
         function triggerFraud() {
-            // Auto-fill to fail
             document.getElementById('srcAcc').value = "A1001";
             document.getElementById('destAcc').value = "BLK_999";
             document.getElementById('amt').value = "500";
             triggerTransfer();
         }
 
-        function postTransfer(data) {
-            fetch('/api/transfer', {
+        function createAccount() {
+            const data = {
+                account: document.getElementById('newAccId').value,
+                holder: document.getElementById('newHolder').value,
+                balance: document.getElementById('newBal').value
+            };
+            doPost('/api/accounts', data, "Account Created!");
+        }
+
+        function requestLoan() {
+            const data = {
+                account: document.getElementById('loanAccId').value,
+                amount: document.getElementById('loanAmt').value
+            };
+            doPost('/api/loans', data, "Loan Approved! Cash + Debt added.");
+        }
+
+        function doPost(url, data, successMsg) {
+            fetch(url, {
                 method: 'POST',
                 body: JSON.stringify(data)
             })
@@ -189,15 +232,19 @@
                 .then(res => {
                     const el = document.getElementById('status');
                     if (res.status === 'OK') {
-                        el.innerText = "Transaction Sent!";
+                        el.innerText = successMsg;
                         el.style.color = "#6a9955";
                         setTimeout(() => el.innerText = "", 2000);
+                        updateMetrics();
                     } else {
                         el.innerText = "Error: " + res.message;
                         el.style.color = "#f44747";
                     }
                 });
         }
+
+        function postTransfer(data) { doPost('/api/transfer', data, "Transaction Sent!"); }
+
         function updateMetrics() {
             fetch('/api/metrics')
                 .then(r => r.json())
@@ -206,16 +253,37 @@
                     chart.innerHTML = '';
                     let total = 0;
 
+                    let maxVal = 2500;
                     data.forEach(acc => {
-                        total += acc.balance;
-                        const height = Math.min((acc.balance / 2500) * 100, 100); // Scale based on ~2500 max
+                        if (acc.balance > maxVal) maxVal = acc.balance;
+                        if (acc.debt > maxVal) maxVal = acc.debt; // Scale for debt too
+                    });
+
+                    data.forEach(acc => {
+                        total += acc.balance; // Liquidity ignores debt? Or subtracts? Usually pure cash in system.
+                        const bHeight = Math.min((acc.balance / maxVal) * 100, 100);
+                        const dHeight = acc.debt ? Math.min((acc.debt / maxVal) * 100, 100) : 0;
+
                         const color = acc.account.startsWith('BLK') ? '#ce9178' : '#007acc';
 
+                        // Two bars side by side or overlay? Side by side is cleaner for logic.
+                        // Actually, let's put debt as a separate small bar next to it or overlay?
+                        // Let's do: [Balance Bar] [Debt Bar (Red)]
+
+                        let barsHtml = `<div class="bar" style="height: ${bHeight}%; background: ${color}; width: 60%;"></div>`;
+                        if (dHeight > 0) {
+                            barsHtml += `<div class="bar" style="height: ${dHeight}%; background: #f44747; width: 30%; margin-left:2px;"></div>`;
+                        }
+
                         chart.innerHTML += `
-                            <div class="bar-group">
-                                <div class="bar-value">₹${acc.balance}</div>
-                                <div class="bar" style="height: ${height}%; background: ${color}"></div>
-                                <div class="bar-label">${acc.holder}<br>(${acc.account})</div>
+                            <div class="bar-group" style="flex-direction: row; align-items: flex-end; justify-content: center; gap: 2px;">
+                                <div style="display:flex; flex-direction:column; width: 100%; height: 100%; align-items: center; justify-content: flex-end;">
+                                    <div class="bar-value">₹${acc.balance} <span style="color:#f44747; font-size:9px;">${acc.debt > 0 ? '(-' + acc.debt + ')' : ''}</span></div>
+                                    <div style="display:flex; height: 100%; width: 100%; align-items: flex-end; justify-content: center;">
+                                        ${barsHtml}
+                                    </div>
+                                    <div class="bar-label">${acc.holder}<br>(${acc.account})</div>
+                                </div>
                             </div>
                         `;
                     });
@@ -229,7 +297,7 @@
                 .then(data => {
                     const container = document.getElementById('logs');
                     container.innerHTML = data.map(t => {
-                        const time = t.time.split('T')[1].split('Z')[0]; // Simple time format
+                        const time = t.time.split('T')[1].split('Z')[0];
                         return `
                             <div class="log-item">
                                 <span class="log-time">${time}</span>
@@ -244,8 +312,9 @@
         setInterval(() => {
             updateMetrics();
             updateLogs();
-        }, 500); // Poll every 500ms
+        }, 500); 
     </script>
+
 </body>
 
 </html>

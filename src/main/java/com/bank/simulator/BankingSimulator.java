@@ -14,19 +14,45 @@ public class BankingSimulator {
 
         System.out.println("=== Starting Advanced Banking Simulator ===");
 
-        // Setup Accounts
-        Account acc1 = new Account("A1001", "Alice", new BigDecimal("1000"));
-        Account acc2 = new Account("A1002", "Bob", new BigDecimal("1000"));
-        Account acc3 = new Account("A1003", "Charlie", new BigDecimal("2000"));
-        Account fraudAcc = new Account("BLK_999", "EvilCorp", new BigDecimal("0")); // Blacklisted
-
         BankService bankService = new BankService();
 
-        // Register accounts to repo for UI visibility
-        bankService.getAccountRepository().save(acc1);
-        bankService.getAccountRepository().save(acc2);
-        bankService.getAccountRepository().save(acc3);
-        bankService.getAccountRepository().save(fraudAcc);
+        // Initialize Services
+        com.bank.simulator.service.StorageService storageService = new com.bank.simulator.service.StorageService(
+                bankService.getAccountRepository(), bankService.getTransactionRepository());
+
+        // Try to load existing data
+        if (storageService.load()) {
+            System.out.println(">> Loaded existing data from bank_data.json");
+        } else {
+            System.out.println(">> No existing data found. Creating default accounts...");
+            // Setup Accounts and save directly
+            bankService.getAccountRepository().save(new Account("A1001", "Alice", new BigDecimal("1000")));
+            bankService.getAccountRepository().save(new Account("A1002", "Bob", new BigDecimal("1000")));
+            bankService.getAccountRepository().save(new Account("A1003", "Charlie", new BigDecimal("1000")));
+            bankService.getAccountRepository().save(new Account("BLK_999", "EvilCorp", new BigDecimal("0")));
+        }
+
+        // Retrieve references for the simulation loop
+        // These keys must match what was saved/loaded
+        Account acc1 = bankService.getAccountRepository().findByAccountNumber("A1001").orElse(null);
+        Account acc2 = bankService.getAccountRepository().findByAccountNumber("A1002").orElse(null);
+        Account acc3 = bankService.getAccountRepository().findByAccountNumber("A1003").orElse(null);
+        Account fraudAcc = bankService.getAccountRepository().findByAccountNumber("BLK_999").orElse(null);
+
+        if (acc1 == null || acc2 == null || acc3 == null || fraudAcc == null) {
+            System.err.println("WARNING: Core accounts missing. Simulation loop might fail.");
+            // We'll proceed but it might throw NPE if the loop runs.
+            // For now, let's assume they exist.
+        }
+
+        // Start Auto-Save
+        storageService.start();
+
+        // Auto-Save on Shutdown
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("\n[SHUTDOWN] Saving state...");
+            storageService.stop();
+        }));
 
         // Start Interest Service
         com.bank.simulator.service.InterestService interestService = new com.bank.simulator.service.InterestService(
