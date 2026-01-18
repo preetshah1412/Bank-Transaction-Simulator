@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bank Core Simulator</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1e1e1e; color: #d4d4d4; margin: 0; padding: 20px; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: #252526; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        h2 { margin-top: 0; color: #4ec9b0; border-bottom: 1px solid #3c3c3c; padding-bottom: 10px; }
+        
+        /* Bar Chart */
+        .bar-container { display: flex; align-items: flex-end; height: 200px; gap: 10px; padding-top: 20px; }
+        .bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .bar { width: 100%; background: #007acc; transition: height 0.5s; border-radius: 4px 4px 0 0; }
+        .bar-label { margin-top: 5px; font-size: 12px; color: #cccccc; }
+        .bar-value { margin-bottom: 5px; font-weight: bold; }
+
+        /* Log Table */
+        .log-container { height: 400px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 13px; }
+        .log-item { padding: 5px; border-bottom: 1px solid #333; display: flex; gap: 10px; }
+        .log-time { color: #569cd6; width: 150px; }
+        .log-status { width: 80px; font-weight: bold; }
+        .SUCCESS { color: #6a9955; }
+        .FAILED { color: #f44747; }
+        .ROLLED_BACK { color: #ce9178; }
+        .REJECTED_FRAUD { color: #d16969; font-weight: bold; background: rgba(255,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <h1 style="color: #569cd6;">Bank Transaction Simulator <span style="font-size: 0.6em; color: #888;">Live Dashboard</span></h1>
+    
+    <div class="container">
+        <!-- Account Balances -->
+        <div class="card">
+            <h2>Live Liquidity</h2>
+            <div id="chart" class="bar-container">Loading...</div>
+            <div style="margin-top: 20px; text-align: center;">Total System Liquidity: <span id="total-liquidity" style="color: #dcdcaa; font-weight: bold;">---</span></div>
+        </div>
+
+        <!-- Transaction Log -->
+        <div class="card">
+            <h2>Audit Log (Live Stream)</h2>
+            <div id="logs" class="log-container">Waiting for transactions...</div>
+        </div>
+    </div>
+
+    <script>
+        function updateMetrics() {
+            fetch('/api/metrics')
+                .then(r => r.json())
+                .then(data => {
+                    const chart = document.getElementById('chart');
+                    chart.innerHTML = '';
+                    let total = 0;
+
+                    data.forEach(acc => {
+                        total += acc.balance;
+                        const height = Math.min((acc.balance / 2500) * 100, 100); // Scale based on ~2500 max
+                        const color = acc.account.startsWith('BLK') ? '#ce9178' : '#007acc';
+                        
+                        chart.innerHTML += `
+                            <div class="bar-group">
+                                <div class="bar-value">${acc.balance}</div>
+                                <div class="bar" style="height: ${height}%; background: ${color}"></div>
+                                <div class="bar-label">${acc.holder}<br>(${acc.account})</div>
+                            </div>
+                        `;
+                    });
+                    document.getElementById('total-liquidity').innerText = total;
+                });
+        }
+
+        function updateLogs() {
+            fetch('/api/logs')
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('logs');
+                    container.innerHTML = data.map(t => {
+                        const time = t.time.split('T')[1].split('Z')[0]; // Simple time format
+                        return `
+                            <div class="log-item">
+                                <span class="log-time">${time}</span>
+                                <span class="log-status ${t.status}">${t.status}</span>
+                                <span>${t.src} ➔ ${t.dest}: ${t.amount}</span>
+                            </div>
+                        `;
+                    }).join('');
+                });
+        }
+
+        setInterval(() => {
+            updateMetrics();
+            updateLogs();
+        }, 500); // Poll every 500ms
+    </script>
+</body>
+</html>
