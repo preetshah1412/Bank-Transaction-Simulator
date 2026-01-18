@@ -24,11 +24,18 @@ public class Account {
         this.balance = initialBalance;
     }
 
+    private static final BigDecimal MIN_BALANCE = new BigDecimal("20");
+
     public void debit(BigDecimal amount) {
         rwLock.writeLock().lock();
         try {
-            if (balance.compareTo(amount) < 0) {
-                throw new InsufficientFundsException("Insufficient balance in account " + accountNumber);
+            // Rule: Check if (Balance - Amount) < 20
+            if (balance.subtract(amount).compareTo(MIN_BALANCE) < 0) {
+                 String msg = String.format(
+                     "Transaction Declined. Insufficient Funds. Your balance is %s, but you need to maintain a minimum of %s.", 
+                     balance, MIN_BALANCE
+                 );
+                 throw new InsufficientFundsException(msg);
             }
             balance = balance.subtract(amount);
         } finally {

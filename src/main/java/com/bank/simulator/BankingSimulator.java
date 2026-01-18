@@ -28,11 +28,18 @@ public class BankingSimulator {
         bankService.getAccountRepository().save(acc3);
         bankService.getAccountRepository().save(fraudAcc);
 
+        // Start Interest Service
+        com.bank.simulator.service.InterestService interestService = new com.bank.simulator.service.InterestService(
+                bankService.getAccountRepository());
+        interestService.start();
+
         // Start UI Server
         try {
+            // Dashboard now needs bankService for manual triggers
             com.bank.simulator.ui.DashboardServer dashboard = new com.bank.simulator.ui.DashboardServer(
                     bankService.getAccountRepository(),
-                    bankService.getTransactionRepository());
+                    bankService.getTransactionRepository(),
+                    bankService);
             dashboard.start();
         } catch (Exception e) {
             System.err.println("Failed to start UI: " + e.getMessage());
@@ -90,11 +97,10 @@ public class BankingSimulator {
         });
 
         executor.shutdown();
-        boolean finished = executor.awaitTermination(15, TimeUnit.SECONDS);
+        // boolean finished = executor.awaitTermination(15, TimeUnit.SECONDS);
+        // We don't want to kill the app. We want it to run forever now.
 
-        bankService.shutdown(); // Close audit thread
-
-        System.out.println("\n=== Simulation Complete ===");
+        System.out.println("\n=== Simulation Loop Complete (App Still Running) ===");
         System.out.println("Final Balance Alice (A1001): " + acc1.getBalance());
         System.out.println("Final Balance Bob   (A1002): " + acc2.getBalance());
         System.out.println("Final Balance Charlie(A1003): " + acc3.getBalance());
