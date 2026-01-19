@@ -28,14 +28,53 @@ Unlike simple simulations, this system handles:
 
 ## 🏗 Architecture
 
-The system follows a clean Separation of Concerns:
+The system follows a clean Separation of Concerns, visualized below:
 
-*   **`Account`**: Domain entity holding state and distinct Read/Write locks.
-*   **`BankService`**: Orchestrates the transfer logic, acquiring locks in the correct order.
-*   **`FraudDetectionService`**: Stateless validator for business rules.
-*   **`AuditService`**: Asynchronous consumer of transaction events.
+```mermaid
+classDiagram
+    class Account {
+        -String accountNumber
+        -BigDecimal balance
+        -ReentrantReadWriteLock rwLock
+        +debit(amount)
+        +credit(amount)
+        +getBalance()
+    }
+    class Transaction {
+        -String id
+        -TransactionStatus status
+        +markSuccess()
+        +markRolledBack()
+    }
+    class BankService {
+        +transfer(from, to, amount)
+    }
+    class FraudDetectionService {
+        +isFraudulent(from, to, amount)
+    }
+    class AuditService {
+        +logTransaction(tx)
+    }
+    
+    BankService --> Account : operates on
+    BankService --> Transaction : creates
+    BankService --> FraudDetectionService : validates
+    BankService --> AuditService : logs
+    Account --> Transaction : stores history
+```
 
-*See [DESIGN.md](DESIGN.md) for a detailed class diagram and architecture breakdown.*
+### 📂 Project Structure
+
+```text
+src/main/java/com/bank/simulator
+├── model/           # Data Entities (Account, Transaction)
+├── repository/      # In-memory data storage
+├── service/         # Business Logic (BankService, FraudDetection)
+├── ui/              # Dashboard Server
+└── BankingSimulator.java  # Main entry point
+```
+
+*For a deep dive into the locking strategy and concurrency control, see [DESIGN.md](DESIGN.md).*
 
 ## ⚡ How to Run
 
