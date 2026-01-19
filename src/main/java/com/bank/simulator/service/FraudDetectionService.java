@@ -1,7 +1,6 @@
 package com.bank.simulator.service;
 
 import com.bank.simulator.model.Account;
-import com.bank.simulator.model.Transaction;
 import java.math.BigDecimal;
 
 public class FraudDetectionService {
