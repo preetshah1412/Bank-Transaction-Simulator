@@ -67,11 +67,24 @@ classDiagram
 
 ```text
 src/main/java/com/bank/simulator
-├── model/           # Data Entities (Account, Transaction)
-├── repository/      # In-memory data storage
-├── service/         # Business Logic (BankService, FraudDetection)
-├── ui/              # Dashboard Server
-└── BankingSimulator.java  # Main entry point
+├── exception/
+│   └── InsufficientFundsException.java
+├── model/
+│   ├── Account.java
+│   ├── Transaction.java
+│   └── TransactionStatus.java
+├── repository/
+│   ├── AccountRepository.java
+│   └── TransactionRepository.java
+├── service/
+│   ├── AuditService.java
+│   ├── BankService.java
+│   ├── FraudDetectionService.java
+│   ├── InterestService.java
+│   └── StorageService.java
+├── ui/
+│   └── DashboardServer.java
+└── BankingSimulator.java
 ```
 
 *For a deep dive into the locking strategy and concurrency control, see [DESIGN.md](DESIGN.md).*
